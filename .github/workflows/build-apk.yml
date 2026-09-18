@@ -24,6 +24,21 @@ jobs:
       - name: Relax Kotlin/Java JVM target validation
         run: echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
 
+      - name: Enable core library desugaring
+        run: |
+          cat >> android/app/build.gradle.kts << 'EOF'
+
+          android {
+              compileOptions {
+                  isCoreLibraryDesugaringEnabled = true
+              }
+          }
+
+          dependencies {
+              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+          }
+          EOF
+
       - name: Get packages
         run: flutter pub get
 
