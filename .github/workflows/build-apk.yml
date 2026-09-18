@@ -62,6 +62,26 @@ jobs:
           }
           EOF
 
+      - name: توحيد Android SDK لكل المكتبات (plugins) مع بعض - الحل الجذري
+        run: |
+          # المشكلة إن كل plugin (file_picker وغيره) بياخد رقم compileSdk
+          # الافتراضي من فلاتر نفسه (34)، مش من إعدادات تطبيقك.
+          # التعديل اللي عملناه في app/build.gradle.kts بيأثر على تطبيقك بس.
+          # السطور دي بتجبر كل المكتبات جوه المشروع (subprojects) إنها
+          # تستخدم نفس رقم الـ SDK والـ NDK، فمفيش أي مكتبة تفضل عالقة
+          # على رقم قديم - سواء دلوقتي أو مع أي تحديث مستقبلي.
+          cat >> android/build.gradle.kts << 'EOF'
+
+          subprojects {
+              afterEvaluate {
+                  extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
+                      compileSdkVersion(36)
+                      ndkVersion = "28.2.13676358"
+                  }
+              }
+          }
+          EOF
+
       - name: Get packages
         run: flutter pub get
 
