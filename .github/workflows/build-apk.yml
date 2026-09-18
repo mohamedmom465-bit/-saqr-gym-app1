@@ -21,6 +21,27 @@ jobs:
       - name: Generate Android platform project
         run: flutter create --platforms=android .
 
+      - name: Fix Kotlin/Java JVM target mismatch
+        run: |
+          cat >> android/build.gradle.kts << 'EOF'
+
+          subprojects {
+              afterEvaluate {
+                  extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply {
+                      compileOptions {
+                          sourceCompatibility = JavaVersion.VERSION_17
+                          targetCompatibility = JavaVersion.VERSION_17
+                      }
+                  }
+                  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+                      kotlinOptions {
+                          jvmTarget = "17"
+                      }
+                  }
+              }
+          }
+          EOF
+
       - name: Get packages
         run: flutter pub get
 
