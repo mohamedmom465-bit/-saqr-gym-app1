@@ -12,23 +12,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # تثبيت نسخة Flutter بالظبط بدل "stable" المتغيرة - يمنع مفاجآت
+      # من تحديثات Flutter المستقبلية اللي ممكن تكسر البيلد فجأة
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.4'
           channel: stable
           cache: true
 
       - name: Generate Android platform project
         run: flutter create --platforms=android .
 
-      - name: Relax Kotlin/Java JVM target validation
-        run: echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
-
-      - name: Enable core library desugaring
+      - name: Patch Android build settings (كل الاحتياطات المعروفة)
         run: |
+          # 1) توحيد نسخة Java/Kotlin - يمنع Inconsistent JVM Target
+          echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
+
+          # 2) زيادة ذاكرة Gradle - يمنع Out Of Memory وقت البناء
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g" >> android/gradle.properties
+
+          # 3) تفعيل AndroidX/Jetifier - مطلوب لمعظم البلجنز الحديثة
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+
+          # 4) رفع compileSdk لأعلى رقم متاح + تثبيت NDK موحدة لكل البلجنز
+          #    (بيمنع أي بلجن يطلب compileSdk/NDK مختلف عن التاني)
+          # 5) تفعيل core library desugaring - مطلوب للـ notifications وغيرها
+          # 6) تفعيل multidex - يمنع "method count exceeded" لو التطبيق كبر
           cat >> android/app/build.gradle.kts << 'EOF'
 
           android {
+              compileSdk = 36
+              ndkVersion = "27.0.12077973"
+
+              defaultConfig {
+                  multiDexEnabled = true
+              }
+
               compileOptions {
                   isCoreLibraryDesugaringEnabled = true
               }
@@ -36,6 +57,7 @@ jobs:
 
           dependencies {
               coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+              implementation("androidx.multidex:multidex:2.0.1")
           }
           EOF
 
@@ -45,14 +67,27 @@ jobs:
       - name: Generate Drift code
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Analyze
+      # مايفشلش الـ build بسبب ملاحظات info/warning تجميلية
+      - name: Analyze (non-blocking)
         run: flutter analyze || true
 
       - name: Build release APK
         run: flutter build apk --release
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: saqr-gym-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      # لو فشل أي حاجة تانية، نرفع اللوجز عشان تبصلها بسهولة من غير
+      # ما تدور في الـ Actions tab
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build/**/*.log
+          if-no-files-found: ignore
