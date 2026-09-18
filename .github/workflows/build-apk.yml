@@ -36,15 +36,16 @@ jobs:
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
-          # 4) رفع compileSdk لأعلى رقم متاح + تثبيت NDK موحدة لكل البلجنز
-          #    (بيمنع أي بلجن يطلب compileSdk/NDK مختلف عن التاني)
+          # 4) رفع compileSdk لأعلى رقم متاح + تثبيت NDK اللي كل البلجنز بتطلبه فعليًا
+          #    (28.2.13676358 - ده اللي ظاهر في رسالة الخطأ إن file_picker وغيره محتاجينه،
+          #    مش 27 زي ما كان متظبط قبل كده)
           # 5) تفعيل core library desugaring - مطلوب للـ notifications وغيرها
           # 6) تفعيل multidex - يمنع "method count exceeded" لو التطبيق كبر
           cat >> android/app/build.gradle.kts << 'EOF'
 
           android {
               compileSdk = 36
-              ndkVersion = "27.0.12077973"
+              ndkVersion = "28.2.13676358"
 
               defaultConfig {
                   multiDexEnabled = true
